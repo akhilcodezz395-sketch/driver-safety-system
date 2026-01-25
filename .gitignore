@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+venv.bak/
+.env
+
+# Data
+data/
+*.csv
+*.png
+*.jpg
+*.tflite
+*.pkl
+
+# PDF Generation
+project_presentation.html
+# Keep the final PDF but ignore temp ones if needed
+# project_presentation.pdf
+
+# Android
+.gradle/
+local.properties
+.idea/
+build/
+app/build/
+*.iml
+*.DS_Store

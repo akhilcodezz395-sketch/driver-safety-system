@@ -1,0 +1,116 @@
+name: CI - Driver Warning System
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  python-tests:
+    name: Python Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run pytest
+      run: |
+        pytest tests/ -v --tb=short
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: pytest-results
+        path: pytest.xml
+
+  model-training:
+    name: Model Training Smoke Test
+    runs-on: ubuntu-latest
+    needs: python-tests
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Generate synthetic data
+      run: |
+        python python/simulate.py --out data/sim_trips.csv --duration 60 --curves 3
+    
+    - name: Train model (quick mode)
+      run: |
+        python python/train.py --input data/sim_trips.csv --out-model models/curve_detector.tflite --quick
+    
+    - name: Verify model artifacts
+      run: |
+        test -f models/curve_detector.tflite || exit 1
+        test -f models/feature_schema.json || exit 1
+        test -f models/scaler.pkl || exit 1
+        echo "All model artifacts created successfully"
+    
+    - name: Upload model artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-artifacts
+        path: |
+          models/curve_detector.tflite
+          models/feature_schema.json
+          models/scaler.pkl
+          models/predictions_sample.csv
+
+  android-build:
+    name: Android Build Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+    
+    - name: Check Gradle wrapper
+      working-directory: android/DriverWarningApp
+      run: |
+        if [ -f "gradlew" ]; then
+          chmod +x gradlew
+          ./gradlew tasks
+        else
+          echo "Gradle wrapper not found - Android project not yet created"
+        fi
+    
+    # Uncomment when Android project is ready
+    # - name: Build debug APK
+    #   working-directory: android/DriverWarningApp
+    #   run: ./gradlew assembleDebug
+    
+    # - name: Upload APK
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: app-debug
+    #     path: android/DriverWarningApp/app/build/outputs/apk/debug/app-debug.apk
