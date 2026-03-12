@@ -62,7 +62,7 @@ class RouteManager {
         destination: String,
         apiKey: String,
         scope: CoroutineScope,
-        onResult: (success: Boolean) -> Unit,
+        onResult: (success: Boolean, errorMessage: String?) -> Unit,
     ) {
         if (isFetching) {
             Log.w(TAG, "Route fetch already in progress; skipping.")
@@ -72,17 +72,29 @@ class RouteManager {
         Log.d(TAG, "Fetching route: $origin → $destination")
 
         scope.launch(Dispatchers.IO) {
+            var errorMsg: String? = null
             val result = runCatching {
                 val url = buildUrl(origin, destination, apiKey)
                 val json = URL(url).readText()
                 val obj = JSONObject(json)
                 val status = obj.getString("status")
+                
                 if (status != "OK") {
-                    Log.e(TAG, "Directions API status: $status")
-                    return@runCatching emptyList()
+                    errorMsg = "API Status: $status"
+                    if (obj.has("error_message")) {
+                        errorMsg += " - " + obj.getString("error_message")
+                    }
+                    Log.e(TAG, errorMsg!!)
+                    return@runCatching emptyList<LatLng>()
                 }
-                val encoded = obj
-                    .getJSONArray("routes")
+                
+                val routes = obj.getJSONArray("routes")
+                if (routes.length() == 0) {
+                    errorMsg = "No routes found"
+                    return@runCatching emptyList<LatLng>()
+                }
+                
+                val encoded = routes
                     .getJSONObject(0)
                     .getJSONObject("overview_polyline")
                     .getString("points")
@@ -93,6 +105,7 @@ class RouteManager {
 
             val polyline = result.getOrElse {
                 Log.e(TAG, "Route fetch exception", it)
+                errorMsg = "Network Error: ${it.localizedMessage}"
                 emptyList()
             }
 
@@ -103,7 +116,7 @@ class RouteManager {
             Log.d(TAG, "Route loaded: ${polyline.size} points (success=$success)")
 
             withContext(Dispatchers.Main) {
-                onResult(success)
+                onResult(success, if (success) null else (errorMsg ?: "Unknown error"))
             }
         }
     }

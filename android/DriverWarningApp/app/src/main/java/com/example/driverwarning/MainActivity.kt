@@ -218,9 +218,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, android.hardware.S
             destination = destination,
             apiKey = MAPS_API_KEY,
             scope = lifecycleScope,
-        ) { success ->
+        ) { success, errorMessage ->
             if (!success) {
-                statusText.text = "🗺️ API failed — using demo route"
+                val displayError = errorMessage ?: "Unknown error"
+                statusText.text = "🗺️ API failed: $displayError"
+                android.widget.Toast.makeText(this, "❌ API Error: $displayError", android.widget.Toast.LENGTH_LONG).show()
                 simulateRoute()
                 return@fetchRoute
             }
