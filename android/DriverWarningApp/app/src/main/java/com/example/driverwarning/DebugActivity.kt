@@ -23,6 +23,7 @@ class DebugActivity : AppCompatActivity() {
     
     private lateinit var modelRunner: TFLiteModelRunner
     private lateinit var featureExtractor: FeatureExtractor
+    private lateinit var sensorFusionEngine: SensorFusionEngine
     private lateinit var alertManager: AlertManager
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,6 +37,7 @@ class DebugActivity : AppCompatActivity() {
         try {
             modelRunner = TFLiteModelRunner(this)
             featureExtractor = FeatureExtractor()
+            sensorFusionEngine = SensorFusionEngine()
             alertManager = AlertManager(this)
             
             android.widget.Toast.makeText(this, "✅ Model loaded successfully!", android.widget.Toast.LENGTH_LONG).show()
@@ -153,7 +155,10 @@ class DebugActivity : AppCompatActivity() {
               "acc_y_mean": 2.0,
               "acc_y_max": 3.5,
               "curve_radius": 150.0,
-              "severity_proxy": 1.5
+              "severity_proxy": 1.5,
+              "lookahead_severity": 5.0,
+              "map_curve_radius": 80.0,
+              "distance_to_next_curve": 45.0
             }
         """.trimIndent()
         
@@ -164,8 +169,8 @@ class DebugActivity : AppCompatActivity() {
         try {
             val json = JSONObject(featureInput.text.toString())
             
-            // Extract features from JSON
-            val features = floatArrayOf(
+            // Extract features from JSON (12 total)
+            val fused = floatArrayOf(
                 json.getDouble("current_speed").toFloat(),
                 json.getDouble("mean_speed").toFloat(),
                 json.getDouble("speed_std").toFloat(),
@@ -174,13 +179,18 @@ class DebugActivity : AppCompatActivity() {
                 json.getDouble("acc_y_mean").toFloat(),
                 json.getDouble("acc_y_max").toFloat(),
                 json.getDouble("curve_radius").toFloat(),
-                json.getDouble("severity_proxy").toFloat()
+                json.getDouble("severity_proxy").toFloat(),
+                
+                // Add the 3 route-lookahead features
+                json.getDouble("lookahead_severity").toFloat(),
+                json.getDouble("map_curve_radius").toFloat(),
+                json.getDouble("distance_to_next_curve").toFloat()
             )
             
-            // Normalize
-            val normalized = featureExtractor.normalize(features)
+            // Normalize all 12
+            val normalized = sensorFusionEngine.normalizeAll(fused)
             
-            // Run inference
+            // Run inference (expects 12)
             val probabilities = modelRunner.predict(normalized)
             
             // Get predicted class
@@ -192,15 +202,18 @@ class DebugActivity : AppCompatActivity() {
                 appendLine("=== Inference Results ===")
                 appendLine()
                 appendLine("Input Features:")
-                appendLine("  current_speed: ${features[0]}")
-                appendLine("  mean_speed: ${features[1]}")
-                appendLine("  speed_std: ${features[2]}")
-                appendLine("  gyro_z_mean: ${features[3]}")
-                appendLine("  gyro_z_max: ${features[4]}")
-                appendLine("  acc_y_mean: ${features[5]}")
-                appendLine("  acc_y_max: ${features[6]}")
-                appendLine("  curve_radius: ${features[7]}")
-                appendLine("  severity_proxy: ${features[8]}")
+                appendLine("  current_speed: ${fused[0]}")
+                appendLine("  mean_speed: ${fused[1]}")
+                appendLine("  speed_std: ${fused[2]}")
+                appendLine("  gyro_z_mean: ${fused[3]}")
+                appendLine("  gyro_z_max: ${fused[4]}")
+                appendLine("  acc_y_mean: ${fused[5]}")
+                appendLine("  acc_y_max: ${fused[6]}")
+                appendLine("  curve_radius: ${fused[7]}")
+                appendLine("  severity_proxy: ${fused[8]}")
+                appendLine("  lookahead_severity: ${fused[9]}")
+                appendLine("  map_curve_radius: ${fused[10]}")
+                appendLine("  distance_to_next_curve: ${fused[11]}")
                 appendLine()
                 appendLine("Probabilities:")
                 appendLine("  Safe:   ${(probabilities[0] * 100).toInt()}%")

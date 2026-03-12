@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, android.hardware.S
         const val ACTION_LOCATION_UPDATE = "com.example.driverwarning.LOCATION_UPDATE"
         const val ACTION_PREDICTION_UPDATE = "com.example.driverwarning.PREDICTION_UPDATE"
         // Google Maps/Directions API key — same key used for the Maps SDK
-        private const val MAPS_API_KEY = "AIzaSyCTNy1gFEL2S1gwqrVlUQ1-sw4dEcw5xGA"
+        private const val MAPS_API_KEY = "AIzaSyBlnjDTo6CxrDBupRLdVcndHdDfONB7Jbc"
     }
     
     private var currentBearing = 0f

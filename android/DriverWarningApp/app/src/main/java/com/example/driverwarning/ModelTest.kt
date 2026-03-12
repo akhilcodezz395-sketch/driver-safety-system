@@ -3,49 +3,47 @@ package com.example.driverwarning
 import android.util.Log
 
 /**
- * Simple test to verify model and scaler are working
+ * Simple test to verify model and scaler are working with 12-feature fusion.
  */
 object ModelTest {
     private const val TAG = "ModelTest"
     
-    fun testModel(modelRunner: TFLiteModelRunner, featureExtractor: FeatureExtractor) {
-        Log.d(TAG, "=== Testing Model ===")
+    fun testModel(modelRunner: TFLiteModelRunner, sensorFusionEngine: SensorFusionEngine) {
+        Log.d(TAG, "=== Testing 12-Feature Model ===")
         
-        // Test case 1: Safe driving (low speed, straight road)
-        val safeFeatures = floatArrayOf(
-            10.0f,    // current_speed
-            10.0f,    // mean_speed
-            0.5f,     // speed_std
-            0.1f,     // gyro_z_mean
-            0.2f,     // gyro_z_max
-            0.5f,     // acc_y_mean
-            1.0f,     // acc_y_max
-            9999.0f,  // curve_radius (straight)
-            0.01f     // severity_proxy
+        // 1. Mock 9 IMU features (safe)
+        val safeImu = floatArrayOf(
+            15.0f, 15.0f, 0.5f,  // speed
+            0.1f, 0.2f,          // gyro
+            2.5f, 4.5f,          // acc
+            9999f, 2.0f          // geometry
         )
+        // Mock 3 lookahead features (straight road)
+        val safeLookahead = RouteCurvePredictor.LookaheadResult(0f, 9999f, 9999f)
         
-        val safeNormalized = featureExtractor.normalize(safeFeatures)
-        val safePred = modelRunner.predict(safeNormalized)
-        Log.d(TAG, "Safe test: ${safePred.contentToString()}")
-        Log.d(TAG, "Predicted class: ${safePred.indices.maxByOrNull { safePred[it] }}")
+        val fusedSafe = sensorFusionEngine.fuse(safeImu, safeLookahead)
+        val normalizedSafe = sensorFusionEngine.normalizeAll(fusedSafe)
+        val predSafe = modelRunner.predict(normalizedSafe)
         
-        // Test case 2: Dangerous driving (high speed, sharp curve)
-        val dangerousFeatures = floatArrayOf(
-            25.0f,    // current_speed (high)
-            24.0f,    // mean_speed
-            2.0f,     // speed_std
-            5.0f,     // gyro_z_mean (turning)
-            10.0f,    // gyro_z_max
-            5.0f,     // acc_y_mean (lateral)
-            8.0f,     // acc_y_max
-            50.0f,    // curve_radius (sharp curve)
-            12.5f     // severity_proxy (high)
+        Log.d(TAG, "Safe test (12f): ${predSafe.contentToString()}")
+        Log.d(TAG, "Predicted class: ${predSafe.indices.maxByOrNull { predSafe[it] }}")
+        
+        // 2. Mock 9 IMU features (dangerous)
+        val dangerImu = floatArrayOf(
+            25.0f, 24.0f, 2.0f,  // speed
+            5.0f, 10.0f,         // gyro
+            5.0f, 8.0f,          // acc
+            50.0f, 15.0f         // geometry
         )
+        // Mock 3 lookahead features (sharp curve soon)
+        val dangerLookahead = RouteCurvePredictor.LookaheadResult(10f, 45f, 30f)
         
-        val dangerNormalized = featureExtractor.normalize(dangerousFeatures)
-        val dangerPred = modelRunner.predict(dangerNormalized)
-        Log.d(TAG, "Dangerous test: ${dangerPred.contentToString()}")
-        Log.d(TAG, "Predicted class: ${dangerPred.indices.maxByOrNull { dangerPred[it] }}")
+        val fusedDanger = sensorFusionEngine.fuse(dangerImu, dangerLookahead)
+        val normalizedDanger = sensorFusionEngine.normalizeAll(fusedDanger)
+        val predDanger = modelRunner.predict(normalizedDanger)
+        
+        Log.d(TAG, "Danger test (12f): ${predDanger.contentToString()}")
+        Log.d(TAG, "Predicted class: ${predDanger.indices.maxByOrNull { predDanger[it] }}")
         
         Log.d(TAG, "=== Test Complete ===")
     }

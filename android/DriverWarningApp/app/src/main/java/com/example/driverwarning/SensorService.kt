@@ -80,7 +80,7 @@ class SensorService : Service(), SensorEventListener {
         dataLogger.startLogging()
         
         // Test model to verify it's working
-        ModelTest.testModel(modelRunner, featureExtractor)
+        ModelTest.testModel(modelRunner, sensorFusionEngine)
         
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
